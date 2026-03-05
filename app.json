@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "OpenClaw Assistant",
+    "slug": "openclaw-assistant",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0f"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0a0f"
+      },
+      "package": "com.openclaw.assistant",
+      "permissions": [
+        "INTERNET",
+        "RECORD_AUDIO",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "FOREGROUND_SERVICE",
+        "POST_NOTIFICATIONS",
+        "ACCESS_NETWORK_STATE",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-background-fetch",
+      "expo-task-manager",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow OpenClaw to access your microphone for voice commands."
+        }
+      ]
+    ]
+  }
+}
