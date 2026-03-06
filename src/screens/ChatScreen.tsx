@@ -66,9 +66,7 @@ export function ChatScreen() {
         <View style={[styles.setupBanner, { backgroundColor: colors.warning + '15', borderColor: colors.warning }]}>
           <Ionicons name="log-in-outline" size={20} color={colors.warning} />
           <Text style={[styles.setupText, { color: colors.warning }]}>
-            {config.authMethod === 'session_cookie'
-              ? 'Paste your Claude session cookie in Settings to get started (no API key needed!)'
-              : 'Add your Claude API key in Settings to get started'}
+            Go to Settings and sign in with your Claude account to get started
           </Text>
         </View>
       )}

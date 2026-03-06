@@ -15,6 +15,7 @@ import { themes, ThemeName } from '../config/theme';
 import { MODELS, DEFAULT_SYSTEM_PROMPT } from '../config/defaults';
 import { clearAllData } from '../services/storage';
 import { AuthMethod } from '../types';
+import { ClaudeLoginScreen } from './ClaudeLoginScreen';
 
 export function SettingsScreen() {
   const config = useStore(s => s.config);
@@ -25,6 +26,16 @@ export function SettingsScreen() {
   const [showSecret, setShowSecret] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState(false);
   const [promptDraft, setPromptDraft] = useState(config.systemPrompt);
+  const [showLogin, setShowLogin] = useState(false);
+
+  const isLoggedIn = config.authMethod === 'session_cookie'
+    ? !!(config.sessionCookie || config.organizationId)
+    : !!config.apiKey;
+
+  // Show WebView login screen
+  if (showLogin) {
+    return <ClaudeLoginScreen onComplete={() => setShowLogin(false)} />;
+  }
 
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <View style={styles.section}>
@@ -70,7 +81,7 @@ export function SettingsScreen() {
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
         {/* Authentication */}
-        <Section title="AUTHENTICATION">
+        <Section title="CLAUDE ACCOUNT">
           <SettingRow icon="log-in-outline" label="Auth Method" description="How to connect to Claude">
             <View style={styles.authMethodRow}>
               {(['session_cookie', 'api_key'] as AuthMethod[]).map(method => (
@@ -86,7 +97,7 @@ export function SettingsScreen() {
                   onPress={() => updateConfig({ authMethod: method })}
                 >
                   <Text style={[styles.authMethodText, { color: config.authMethod === method ? colors.primary : colors.text }]}>
-                    {method === 'session_cookie' ? 'Login Cookie' : 'API Key'}
+                    {method === 'session_cookie' ? 'Claude Login' : 'API Key'}
                   </Text>
                 </Pressable>
               ))}
@@ -95,35 +106,48 @@ export function SettingsScreen() {
 
           {config.authMethod === 'session_cookie' ? (
             <>
-              <SettingRow icon="finger-print-outline" label="Session Cookie" description="Paste your claude.ai sessionKey cookie">
-                <View style={styles.apiKeyRow}>
-                  <TextInput
-                    style={[styles.apiKeyInput, { color: colors.text, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
-                    value={config.sessionCookie}
-                    onChangeText={v => updateConfig({ sessionCookie: v })}
-                    placeholder="sk-ant-sid01-..."
-                    placeholderTextColor={colors.textMuted}
-                    secureTextEntry={!showSecret}
-                    autoCapitalize="none"
-                    autoCorrect={false}
+              {/* Sign In Button */}
+              <View style={styles.loginSection}>
+                <Pressable
+                  style={[styles.loginButton, { backgroundColor: isLoggedIn ? colors.success + '15' : colors.primary }]}
+                  onPress={() => setShowLogin(true)}
+                >
+                  <Ionicons
+                    name={isLoggedIn ? 'checkmark-circle' : 'log-in-outline'}
+                    size={22}
+                    color={isLoggedIn ? colors.success : '#fff'}
                   />
-                  <Pressable onPress={() => setShowSecret(!showSecret)}>
-                    <Ionicons name={showSecret ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
-                  </Pressable>
-                </View>
-              </SettingRow>
+                  <Text style={[styles.loginButtonText, { color: isLoggedIn ? colors.success : '#fff' }]}>
+                    {isLoggedIn ? 'Signed In — Tap to Re-login' : 'Sign in to Claude'}
+                  </Text>
+                </Pressable>
+                <Text style={[styles.loginHint, { color: colors.textMuted }]}>
+                  {isLoggedIn
+                    ? 'Using your Claude subscription. No API key needed.'
+                    : 'Sign in with your claude.ai account. Uses your existing subscription.'}
+                </Text>
+              </View>
 
-              <SettingRow icon="business-outline" label="Organization ID" description="From claude.ai URL" last>
-                <TextInput
-                  style={[styles.apiKeyInput, { color: colors.text, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
-                  value={config.organizationId}
-                  onChangeText={v => updateConfig({ organizationId: v })}
-                  placeholder="org-uuid-here"
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </SettingRow>
+              {/* Sign out */}
+              {isLoggedIn && (
+                <SettingRow icon="log-out-outline" label="Sign Out" description="Disconnect Claude account" last>
+                  <Pressable
+                    style={[styles.smallButton, { borderColor: colors.error }]}
+                    onPress={() => {
+                      Alert.alert('Sign Out', 'Disconnect your Claude account?', [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Sign Out',
+                          style: 'destructive',
+                          onPress: () => updateConfig({ sessionCookie: '', organizationId: '' }),
+                        },
+                      ]);
+                    }}
+                  >
+                    <Text style={[styles.smallButtonText, { color: colors.error }]}>Sign Out</Text>
+                  </Pressable>
+                </SettingRow>
+              )}
             </>
           ) : (
             <SettingRow icon="key-outline" label="API Key" description="Your Anthropic Claude API key" last>
@@ -528,6 +552,17 @@ const styles = StyleSheet.create({
   authMethodRow: { flexDirection: 'row', gap: 6 },
   authMethodBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5 },
   authMethodText: { fontSize: 13, fontWeight: '600' },
+  loginSection: { padding: 16, gap: 10 },
+  loginButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  loginButtonText: { fontSize: 16, fontWeight: '700' },
+  loginHint: { fontSize: 12, textAlign: 'center', lineHeight: 18 },
   apiKeyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   apiKeyInput: { width: 200, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 },
   modelList: { gap: 6 },
