@@ -20,6 +20,7 @@ import { getTelegramService } from '../services/telegram';
 import { getDiscordService } from '../services/discord';
 import { EvolutionEngine } from '../services/evolution';
 import { ProactiveEngine } from '../services/proactive';
+import { IS_TABLET } from '../config/responsive';
 
 interface AppState {
   // Config
@@ -117,7 +118,7 @@ export const useStore = create<AppState>((set, get) => ({
   memoryCount: 0,
   evolutionEngine: null,
   proactiveEngine: null,
-  isSidebarOpen: true,
+  isSidebarOpen: IS_TABLET,
   activeTab: 'chat',
 
   initialize: async () => {

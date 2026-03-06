@@ -9,7 +9,15 @@
     },
     "preview": {
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "distribution": "internal"
+    },
+    "local": {
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
       },
       "distribution": "internal"
     },

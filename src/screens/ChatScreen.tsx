@@ -8,6 +8,7 @@ import { ChatInput } from '../components/ChatInput';
 import { StreamingIndicator } from '../components/StreamingIndicator';
 import { Sidebar } from '../components/Sidebar';
 import { Message } from '../types';
+import { LAYOUT, IS_PHONE } from '../config/responsive';
 
 export function ChatScreen() {
   const config = useStore(s => s.config);
@@ -200,13 +201,13 @@ const styles = StyleSheet.create({
   featureGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: LAYOUT.featureGridGap,
     justifyContent: 'center',
     marginBottom: 24,
   },
   featureCard: {
-    width: 140,
-    padding: 16,
+    width: LAYOUT.featureCardWidth,
+    padding: LAYOUT.featureCardPadding,
     borderRadius: 12,
     alignItems: 'center',
     gap: 6,

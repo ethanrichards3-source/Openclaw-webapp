@@ -4,6 +4,7 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { LAYOUT } from './src/config/responsive';
 import { useStore } from './src/store';
 import { themes } from './src/config/theme';
 import { ChatScreen } from './src/screens/ChatScreen';
@@ -52,14 +53,14 @@ function AppContent() {
           tabBarStyle: {
             backgroundColor: themeColors.tabBar,
             borderTopColor: themeColors.border,
-            height: 64,
-            paddingBottom: 8,
-            paddingTop: 8,
+            height: LAYOUT.tabBar.height,
+            paddingBottom: LAYOUT.tabBar.paddingBottom,
+            paddingTop: 4,
           },
           tabBarActiveTintColor: themeColors.primary,
           tabBarInactiveTintColor: themeColors.textMuted,
           tabBarLabelStyle: {
-            fontSize: 11,
+            fontSize: LAYOUT.tabBar.labelSize,
             fontWeight: '600',
           },
           tabBarIcon: ({ focused, color, size }) => {
