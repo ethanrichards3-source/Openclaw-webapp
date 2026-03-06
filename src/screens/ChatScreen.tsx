@@ -17,9 +17,14 @@ export function ChatScreen() {
   const isSidebarOpen = useStore(s => s.isSidebarOpen);
   const toggleSidebar = useStore(s => s.toggleSidebar);
   const createConversation = useStore(s => s.createConversation);
+  const memoryCount = useStore(s => s.memoryCount);
   const flatListRef = useRef<FlatList>(null);
 
   const messages = conversation?.messages || [];
+
+  const isAuthenticated = config.authMethod === 'session_cookie'
+    ? !!config.sessionCookie
+    : !!config.apiKey;
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -44,8 +49,10 @@ export function ChatScreen() {
         {[
           { icon: 'flash-outline', label: 'Proactive', desc: 'Anticipates your needs' },
           { icon: 'git-branch-outline', label: 'Self-Evolving', desc: 'Improves over time' },
-          { icon: 'moon-outline', label: 'Always On', desc: '24/7 availability' },
-          { icon: 'extension-puzzle-outline', label: 'Skills', desc: 'Extensible abilities' },
+          { icon: 'library-outline', label: 'Memory', desc: `${memoryCount} memories` },
+          { icon: 'globe-outline', label: 'Multi-Channel', desc: 'Telegram & Discord' },
+          { icon: 'browsers-outline', label: 'Browser', desc: 'Web automation' },
+          { icon: 'pencil-outline', label: 'S Pen', desc: 'Stylus support' },
         ].map((feature, i) => (
           <View key={i} style={[styles.featureCard, { backgroundColor: colors.surfaceElevated }]}>
             <Ionicons name={feature.icon as any} size={24} color={colors.primary} />
@@ -54,11 +61,13 @@ export function ChatScreen() {
           </View>
         ))}
       </View>
-      {!config.apiKey && (
+      {!isAuthenticated && (
         <View style={[styles.setupBanner, { backgroundColor: colors.warning + '15', borderColor: colors.warning }]}>
-          <Ionicons name="key-outline" size={20} color={colors.warning} />
+          <Ionicons name="log-in-outline" size={20} color={colors.warning} />
           <Text style={[styles.setupText, { color: colors.warning }]}>
-            Add your Claude API key in Settings to get started
+            {config.authMethod === 'session_cookie'
+              ? 'Paste your Claude session cookie in Settings to get started (no API key needed!)'
+              : 'Add your Claude API key in Settings to get started'}
           </Text>
         </View>
       )}
@@ -196,7 +205,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   featureCard: {
-    width: 150,
+    width: 140,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',

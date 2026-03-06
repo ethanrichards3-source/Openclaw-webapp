@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Conversation, AssistantConfig, Skill, ScheduledTask, ProactiveRule, EvolutionLog } from '../types';
+import { Conversation, AssistantConfig, Skill, ScheduledTask, ProactiveRule, EvolutionLog, MemoryEntry } from '../types';
 
 const KEYS = {
   CONFIG: '@openclaw:config',
@@ -10,6 +10,7 @@ const KEYS = {
   PROACTIVE_RULES: '@openclaw:proactiveRules',
   EVOLUTION_LOG: '@openclaw:evolutionLog',
   FIRST_LAUNCH: '@openclaw:firstLaunch',
+  MEMORIES: '@openclaw:memories',
 };
 
 async function getJSON<T>(key: string, fallback: T): Promise<T> {
@@ -93,6 +94,15 @@ export async function appendEvolutionLog(entry: EvolutionLog): Promise<void> {
   // Keep last 100 entries
   if (log.length > 100) log.splice(0, log.length - 100);
   return saveEvolutionLog(log);
+}
+
+// Memories
+export async function loadMemories(): Promise<MemoryEntry[]> {
+  return getJSON(KEYS.MEMORIES, []);
+}
+
+export async function saveMemories(memories: MemoryEntry[]): Promise<void> {
+  return setJSON(KEYS.MEMORIES, memories);
 }
 
 // First launch check

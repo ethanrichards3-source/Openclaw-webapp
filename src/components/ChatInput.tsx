@@ -12,6 +12,7 @@ export function ChatInput() {
   const isStreaming = useStore(s => s.isStreaming);
   const cancelStreaming = useStore(s => s.cancelStreaming);
   const config = useStore(s => s.config);
+  const memoryCount = useStore(s => s.memoryCount);
   const colors = themes[config.theme].colors;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -31,6 +32,8 @@ export function ChatInput() {
   const handleStop = () => {
     cancelStreaming();
   };
+
+  const authLabel = config.authMethod === 'session_cookie' ? 'Session' : 'API';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
@@ -83,16 +86,26 @@ export function ChatInput() {
 
       <View style={styles.statusRow}>
         <Text style={[styles.statusText, { color: colors.textMuted }]}>
-          {isStreaming ? '⚡ Generating...' : config.model.split('-').slice(0, 2).join(' ')}
+          {isStreaming ? 'Generating...' : `${config.model.split('-').slice(0, 2).join(' ')} (${authLabel})`}
         </Text>
-        {config.selfEvolutionEnabled && (
-          <Text style={[styles.statusBadge, { color: colors.secondary }]}>
-            🧬 Self-Evolving
+        {config.persistentMemoryEnabled && memoryCount > 0 && (
+          <Text style={[styles.statusBadge, { color: colors.primary }]}>
+            {memoryCount} memories
           </Text>
         )}
-        {config.proactiveMode && (
+        {config.selfEvolutionEnabled && (
+          <Text style={[styles.statusBadge, { color: colors.secondary }]}>
+            Self-Evolving
+          </Text>
+        )}
+        {config.telegramConfig.enabled && (
           <Text style={[styles.statusBadge, { color: colors.warning }]}>
-            📡 Proactive
+            TG
+          </Text>
+        )}
+        {config.discordConfig.enabled && (
+          <Text style={[styles.statusBadge, { color: colors.warning }]}>
+            Discord
           </Text>
         )}
       </View>

@@ -10,6 +10,8 @@ import { ChatScreen } from './src/screens/ChatScreen';
 import { SkillsScreen } from './src/screens/SkillsScreen';
 import { EvolutionScreen } from './src/screens/EvolutionScreen';
 import { TasksScreen } from './src/screens/TasksScreen';
+import { MemoryScreen } from './src/screens/MemoryScreen';
+import { ChannelsScreen } from './src/screens/ChannelsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
@@ -18,6 +20,7 @@ function AppContent() {
   const config = useStore(s => s.config);
   const isConfigLoaded = useStore(s => s.isConfigLoaded);
   const pendingEvolutions = useStore(s => s.pendingEvolutions);
+  const memoryCount = useStore(s => s.memoryCount);
   const themeColors = themes[config.theme].colors;
 
   if (!isConfigLoaded) {
@@ -56,7 +59,7 @@ function AppContent() {
           tabBarActiveTintColor: themeColors.primary,
           tabBarInactiveTintColor: themeColors.textMuted,
           tabBarLabelStyle: {
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: '600',
           },
           tabBarIcon: ({ focused, color, size }) => {
@@ -70,6 +73,12 @@ function AppContent() {
                 break;
               case 'Evolution':
                 iconName = focused ? 'flask' : 'flask-outline';
+                break;
+              case 'Memory':
+                iconName = focused ? 'library' : 'library-outline';
+                break;
+              case 'Channels':
+                iconName = focused ? 'globe' : 'globe-outline';
                 break;
               case 'Tasks':
                 iconName = focused ? 'calendar' : 'calendar-outline';
@@ -85,6 +94,13 @@ function AppContent() {
         })}
       >
         <Tab.Screen name="Chat" component={ChatScreen} />
+        <Tab.Screen name="Memory" component={MemoryScreen}
+          options={{
+            tabBarBadge: memoryCount > 0 ? memoryCount : undefined,
+            tabBarBadgeStyle: { backgroundColor: themeColors.primary, fontSize: 9 },
+          }}
+        />
+        <Tab.Screen name="Channels" component={ChannelsScreen} />
         <Tab.Screen name="Skills" component={SkillsScreen} />
         <Tab.Screen
           name="Evolution"

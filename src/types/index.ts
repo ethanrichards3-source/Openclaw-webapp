@@ -4,6 +4,7 @@ export interface Message {
   content: string;
   timestamp: number;
   metadata?: MessageMetadata;
+  channel?: ChannelSource;
 }
 
 export interface MessageMetadata {
@@ -12,6 +13,8 @@ export interface MessageMetadata {
   toolCalls?: ToolCall[];
   isProactive?: boolean;
   evolutionAction?: EvolutionAction;
+  memoryHits?: MemoryEntry[];
+  stylusInput?: boolean;
 }
 
 export interface ToolCall {
@@ -81,12 +84,83 @@ export interface ProactiveRule {
   enabled: boolean;
 }
 
+// --- Memory System ---
+export interface MemoryEntry {
+  id: string;
+  content: string;
+  embedding?: number[];
+  tags: string[];
+  source: 'conversation' | 'user_note' | 'evolution' | 'proactive' | 'channel';
+  conversationId?: string;
+  timestamp: number;
+  importance: number;
+}
+
+export interface MemorySearchResult {
+  entry: MemoryEntry;
+  score: number;
+}
+
+// --- Channel System ---
+export type ChannelType = 'local' | 'telegram' | 'discord';
+
+export interface ChannelSource {
+  type: ChannelType;
+  channelId?: string;
+  username?: string;
+  messageId?: string;
+}
+
+export interface TelegramConfig {
+  botToken: string;
+  enabled: boolean;
+  allowedChatIds: string[];
+}
+
+export interface DiscordConfig {
+  botToken: string;
+  enabled: boolean;
+  allowedGuildIds: string[];
+  allowedChannelIds: string[];
+}
+
+// --- Browser Automation ---
+export interface BrowserAction {
+  id: string;
+  type: 'navigate' | 'click' | 'type' | 'screenshot' | 'extract' | 'script';
+  target?: string;
+  value?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  result?: string;
+  timestamp: number;
+}
+
+export interface BrowserSession {
+  id: string;
+  url: string;
+  title?: string;
+  actions: BrowserAction[];
+  createdAt: number;
+  isActive: boolean;
+}
+
+// --- Auth System ---
+export type AuthMethod = 'session_cookie' | 'api_key';
+
 export interface AssistantConfig {
+  // Auth - supports both session cookie (claude.ai login) and API key
+  authMethod: AuthMethod;
   apiKey: string;
+  sessionCookie: string;
+  organizationId: string;
+
+  // Model
   model: string;
   systemPrompt: string;
   maxTokens: number;
   temperature: number;
+
+  // Features
   voiceEnabled: boolean;
   voiceSpeed: number;
   alwaysOn: boolean;
@@ -95,6 +169,24 @@ export interface AssistantConfig {
   autoApproveEvolution: boolean;
   notificationsEnabled: boolean;
   wakeWord: string;
+
+  // Memory
+  persistentMemoryEnabled: boolean;
+  memoryMaxEntries: number;
+  autoMemorize: boolean;
+
+  // Channels
+  telegramConfig: TelegramConfig;
+  discordConfig: DiscordConfig;
+
+  // Browser
+  browserAutomationEnabled: boolean;
+
+  // S Pen
+  sPenEnabled: boolean;
+  sPenPressureSensitivity: boolean;
+
+  // Appearance
   theme: 'dark' | 'light' | 'amoled';
   fontSize: number;
   tabletMode: boolean;
@@ -108,6 +200,7 @@ export interface DeviceInfo {
   batteryLevel?: number;
   isCharging?: boolean;
   networkType?: string;
+  hasSPen?: boolean;
 }
 
-export type NavigationTab = 'chat' | 'skills' | 'evolution' | 'tasks' | 'settings';
+export type NavigationTab = 'chat' | 'skills' | 'evolution' | 'tasks' | 'memory' | 'channels' | 'settings';

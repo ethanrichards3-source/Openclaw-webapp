@@ -7,15 +7,25 @@ export const DEFAULT_SYSTEM_PROMPT = `You are OpenClaw, a proactive AI assistant
 - You run locally on the user's tablet and maintain persistent context
 - You are self-evolving: you can modify your own behavior, skills, and prompts to better serve the user
 - You are proactive: you don't just respond, you anticipate needs and offer help
+- You have persistent memory: you remember important facts, preferences, and context across all conversations
 
 ## Capabilities
 1. **Conversation**: Natural language chat with full context awareness
-2. **Task Management**: Create, schedule, and manage tasks and reminders
-3. **Self-Evolution**: Modify your own system prompt, add/remove skills, change behaviors
-4. **Code Awareness**: You understand your own source code and can suggest modifications
-5. **Proactive Monitoring**: Monitor conditions and notify the user when relevant
-6. **Voice Interaction**: Listen and respond via voice
-7. **Multi-Skill**: Execute specialized skills for different domains
+2. **Persistent Memory**: Remember facts, preferences, and context across conversations
+3. **Task Management**: Create, schedule, and manage tasks and reminders
+4. **Self-Evolution**: Modify your own system prompt, add/remove skills, change behaviors
+5. **Code Awareness**: You understand your own source code and can suggest modifications
+6. **Proactive Monitoring**: Monitor conditions and notify the user when relevant
+7. **Voice Interaction**: Listen and respond via voice
+8. **Multi-Channel**: Respond via Telegram and Discord bots
+9. **Browser Automation**: Navigate web pages, extract data, take screenshots
+10. **S Pen Support**: Accept handwritten/drawn input from the S Pen stylus
+
+## Memory Protocol
+- Automatically memorize important user preferences, facts, and context
+- Tag memories with relevant categories for efficient retrieval
+- When responding, search memory for relevant past context
+- Proactively reference past conversations and preferences
 
 ## Self-Evolution Protocol
 When you identify an improvement to make:
@@ -28,13 +38,16 @@ When you identify an improvement to make:
 ## Behavioral Guidelines
 - Be concise but thorough
 - Proactively suggest improvements to yourself and the user's workflow
-- Remember context across conversations
+- Remember context across conversations using persistent memory
 - Prioritize the user's privacy and security
 - Be transparent about your capabilities and limitations
 - When modifying yourself, always explain why and what effect it will have`;
 
 export const DEFAULT_CONFIG: AssistantConfig = {
+  authMethod: 'session_cookie',
   apiKey: '',
+  sessionCookie: '',
+  organizationId: '',
   model: 'claude-sonnet-4-20250514',
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   maxTokens: 4096,
@@ -47,6 +60,23 @@ export const DEFAULT_CONFIG: AssistantConfig = {
   autoApproveEvolution: false,
   notificationsEnabled: true,
   wakeWord: 'hey openclaw',
+  persistentMemoryEnabled: true,
+  memoryMaxEntries: 1000,
+  autoMemorize: true,
+  telegramConfig: {
+    botToken: '',
+    enabled: false,
+    allowedChatIds: [],
+  },
+  discordConfig: {
+    botToken: '',
+    enabled: false,
+    allowedGuildIds: [],
+    allowedChannelIds: [],
+  },
+  browserAutomationEnabled: false,
+  sPenEnabled: true,
+  sPenPressureSensitivity: true,
   theme: 'dark',
   fontSize: 16,
   tabletMode: true,
@@ -130,6 +160,26 @@ Current skills: {{SKILLS_LIST}}`,
     createdAt: Date.now(),
     isBuiltIn: true,
   },
+  {
+    id: 'skill-remember',
+    name: 'Memory Manager',
+    description: 'Search, add, or manage persistent memories',
+    prompt: 'Help the user manage their persistent memory. You can search for memories, add new ones, or review existing ones.\n\n',
+    enabled: true,
+    triggers: ['remember', 'recall', 'memory', 'forget'],
+    createdAt: Date.now(),
+    isBuiltIn: true,
+  },
+  {
+    id: 'skill-browse',
+    name: 'Web Browser',
+    description: 'Browse the web, extract information from pages',
+    prompt: 'Help the user browse the web. Navigate to URLs, extract content, and summarize pages.\n\n',
+    enabled: true,
+    triggers: ['browse', 'go to', 'open website', 'fetch page'],
+    createdAt: Date.now(),
+    isBuiltIn: true,
+  },
 ];
 
 export const DEFAULT_PROACTIVE_RULES: ProactiveRule[] = [
@@ -162,6 +212,14 @@ export const DEFAULT_PROACTIVE_RULES: ProactiveRule[] = [
     name: 'Self-Improvement Check',
     condition: 'every_24_hours',
     action: 'Analyze recent interactions and suggest self-improvements',
+    cooldownMinutes: 1440,
+    enabled: true,
+  },
+  {
+    id: 'rule-memory-review',
+    name: 'Memory Review',
+    condition: 'every_24_hours',
+    action: 'Review recent memories, consolidate duplicates, and surface relevant past context',
     cooldownMinutes: 1440,
     enabled: true,
   },

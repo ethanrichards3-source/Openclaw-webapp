@@ -8,10 +8,16 @@ import {
   ProactiveRule,
   EvolutionLog,
   EvolutionAction,
+  MemoryEntry,
+  MemorySearchResult,
+  ChannelSource,
 } from '../types';
 import { DEFAULT_CONFIG, BUILT_IN_SKILLS, DEFAULT_PROACTIVE_RULES } from '../config/defaults';
 import * as storage from '../services/storage';
 import { getClaudeService } from '../services/claude';
+import { getMemoryService } from '../services/memory';
+import { getTelegramService } from '../services/telegram';
+import { getDiscordService } from '../services/discord';
 import { EvolutionEngine } from '../services/evolution';
 import { ProactiveEngine } from '../services/proactive';
 
@@ -39,6 +45,9 @@ interface AppState {
   evolutionLog: EvolutionLog[];
   pendingEvolutions: EvolutionAction[];
 
+  // Memory
+  memoryCount: number;
+
   // Engines
   evolutionEngine: EvolutionEngine | null;
   proactiveEngine: ProactiveEngine | null;
@@ -55,7 +64,7 @@ interface AppState {
   createConversation: (title?: string) => string;
   setActiveConversation: (id: string) => void;
   deleteConversation: (id: string) => void;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, channel?: ChannelSource) => Promise<void>;
   cancelStreaming: () => void;
   getActiveConversation: () => Conversation | undefined;
 
@@ -80,6 +89,13 @@ interface AppState {
   rejectEvolution: (index: number) => void;
   rollbackEvolution: (logEntry: EvolutionLog) => Promise<boolean>;
 
+  // Memory actions
+  addMemory: (content: string, tags: string[], source: MemoryEntry['source'], importance?: number) => Promise<void>;
+  searchMemory: (query: string) => Promise<MemorySearchResult[]>;
+  getAllMemories: () => Promise<MemoryEntry[]>;
+  deleteMemory: (id: string) => Promise<void>;
+  clearMemories: () => Promise<void>;
+
   // UI actions
   toggleSidebar: () => void;
   setActiveTab: (tab: string) => void;
@@ -98,6 +114,7 @@ export const useStore = create<AppState>((set, get) => ({
   proactiveRules: [...DEFAULT_PROACTIVE_RULES],
   evolutionLog: [],
   pendingEvolutions: [],
+  memoryCount: 0,
   evolutionEngine: null,
   proactiveEngine: null,
   isSidebarOpen: true,
@@ -119,6 +136,11 @@ export const useStore = create<AppState>((set, get) => ({
       const skills = savedSkills.length > 0 ? savedSkills : [...BUILT_IN_SKILLS];
       const rules = savedRules.length > 0 ? savedRules : [...DEFAULT_PROACTIVE_RULES];
 
+      // Initialize memory service
+      const memoryService = getMemoryService(config.memoryMaxEntries);
+      await memoryService.load();
+      const memoryCount = await memoryService.getMemoryCount();
+
       // Initialize evolution engine
       const evolutionEngine = new EvolutionEngine(config, {
         onConfigUpdate: (updates) => get().updateConfig(updates),
@@ -128,6 +150,7 @@ export const useStore = create<AppState>((set, get) => ({
       });
 
       // Initialize proactive engine
+      const isAuth = config.authMethod === 'session_cookie' ? !!config.sessionCookie : !!config.apiKey;
       const proactiveEngine = new ProactiveEngine(rules, config, (message, rule) => {
         const state = get();
         const activeConv = state.getActiveConversation();
@@ -135,7 +158,7 @@ export const useStore = create<AppState>((set, get) => ({
           const proactiveMsg: Message = {
             id: `msg-proactive-${Date.now()}`,
             role: 'assistant',
-            content: `🔔 **Proactive: ${rule.name}**\n\n${message}`,
+            content: `**Proactive: ${rule.name}**\n\n${message}`,
             timestamp: Date.now(),
             metadata: { isProactive: true },
           };
@@ -151,8 +174,42 @@ export const useStore = create<AppState>((set, get) => ({
         }
       });
 
-      if (config.proactiveMode && config.apiKey) {
+      if (config.proactiveMode && isAuth) {
         proactiveEngine.start();
+      }
+
+      // Initialize channel bots
+      if (config.telegramConfig.enabled && config.telegramConfig.botToken) {
+        const telegram = getTelegramService(config.telegramConfig);
+        telegram.setMessageHandler(async (text, channel) => {
+          // Process through the assistant
+          const claude = getClaudeService(
+            config.authMethod, config.apiKey, config.sessionCookie, config.organizationId,
+            config.model, config.maxTokens, config.temperature
+          );
+          const result = await claude.sendMessageSync(
+            [{ id: 'chan', role: 'user', content: text, timestamp: Date.now() }],
+            config.systemPrompt
+          );
+          return result.text;
+        });
+        telegram.start();
+      }
+
+      if (config.discordConfig.enabled && config.discordConfig.botToken) {
+        const discord = getDiscordService(config.discordConfig);
+        discord.setMessageHandler(async (text, channel) => {
+          const claude = getClaudeService(
+            config.authMethod, config.apiKey, config.sessionCookie, config.organizationId,
+            config.model, config.maxTokens, config.temperature
+          );
+          const result = await claude.sendMessageSync(
+            [{ id: 'chan', role: 'user', content: text, timestamp: Date.now() }],
+            config.systemPrompt
+          );
+          return result.text;
+        });
+        discord.start();
       }
 
       set({
@@ -164,6 +221,7 @@ export const useStore = create<AppState>((set, get) => ({
         evolutionLog: savedLog,
         evolutionEngine,
         proactiveEngine,
+        memoryCount,
         isConfigLoaded: true,
         activeConversationId: savedConversations.length > 0 ? savedConversations[0].id : null,
       });
@@ -183,11 +241,29 @@ export const useStore = create<AppState>((set, get) => ({
     evolutionEngine?.updateConfig(newConfig);
     proactiveEngine?.updateConfig(newConfig);
 
-    // Start/stop proactive engine based on config
-    if (newConfig.proactiveMode && newConfig.apiKey) {
+    const isAuth = newConfig.authMethod === 'session_cookie' ? !!newConfig.sessionCookie : !!newConfig.apiKey;
+    if (newConfig.proactiveMode && isAuth) {
       proactiveEngine?.start();
     } else {
       proactiveEngine?.stop();
+    }
+
+    // Update channel bot configs
+    if (updates.telegramConfig) {
+      const telegram = getTelegramService(newConfig.telegramConfig);
+      if (newConfig.telegramConfig.enabled && newConfig.telegramConfig.botToken) {
+        telegram.start();
+      } else {
+        telegram.stop();
+      }
+    }
+    if (updates.discordConfig) {
+      const discord = getDiscordService(newConfig.discordConfig);
+      if (newConfig.discordConfig.enabled && newConfig.discordConfig.botToken) {
+        discord.start();
+      } else {
+        discord.stop();
+      }
     }
   },
 
@@ -227,16 +303,14 @@ export const useStore = create<AppState>((set, get) => ({
     return conversations.find(c => c.id === activeConversationId);
   },
 
-  sendMessage: async (content) => {
+  sendMessage: async (content, channel) => {
     const state = get();
     let conversationId = state.activeConversationId;
 
-    // Create conversation if none exists
     if (!conversationId) {
       conversationId = get().createConversation();
     }
 
-    // Record activity for proactive engine
     state.proactiveEngine?.recordActivity();
 
     const userMessage: Message = {
@@ -244,6 +318,7 @@ export const useStore = create<AppState>((set, get) => ({
       role: 'user',
       content,
       timestamp: Date.now(),
+      channel,
     };
 
     // Check if a skill should be triggered
@@ -253,6 +328,15 @@ export const useStore = create<AppState>((set, get) => ({
     );
     if (matchedSkill) {
       effectivePrompt += `\n\n## Active Skill: ${matchedSkill.name}\n${matchedSkill.prompt}`;
+    }
+
+    // Inject memory context if enabled
+    if (state.config.persistentMemoryEnabled) {
+      const memoryService = getMemoryService();
+      const memoryContext = await memoryService.buildMemoryContext(content);
+      if (memoryContext) {
+        effectivePrompt += memoryContext;
+      }
     }
 
     // Add user message to conversation
@@ -267,7 +351,10 @@ export const useStore = create<AppState>((set, get) => ({
     if (!conversation) return;
 
     const claude = getClaudeService(
+      state.config.authMethod,
       state.config.apiKey,
+      state.config.sessionCookie,
+      state.config.organizationId,
       state.config.model,
       state.config.maxTokens,
       state.config.temperature
@@ -279,7 +366,7 @@ export const useStore = create<AppState>((set, get) => ({
         fullText += token;
         set({ streamingText: fullText });
       },
-      onComplete: (text, usage) => {
+      onComplete: async (text, usage) => {
         const assistantMessage: Message = {
           id: `msg-${Date.now()}-assistant`,
           role: 'assistant',
@@ -309,7 +396,24 @@ export const useStore = create<AppState>((set, get) => ({
         });
         storage.saveConversations(updatedConversations);
 
-        // Check for self-evolution triggers in the response
+        // Auto-memorize if enabled
+        if (state.config.persistentMemoryEnabled && state.config.autoMemorize) {
+          const memoryService = getMemoryService();
+          const memorable = memoryService.extractMemorableContent(content, text);
+          if (memorable) {
+            await memoryService.addMemory(
+              memorable.content,
+              memorable.tags,
+              'conversation',
+              memorable.importance,
+              conversationId || undefined
+            );
+            const count = await memoryService.getMemoryCount();
+            set({ memoryCount: count });
+          }
+        }
+
+        // Check for self-evolution triggers
         if (state.config.selfEvolutionEnabled && text.includes('[EVOLVE]')) {
           get().requestEvolution(text);
         }
@@ -318,7 +422,7 @@ export const useStore = create<AppState>((set, get) => ({
         const errorMessage: Message = {
           id: `msg-${Date.now()}-error`,
           role: 'assistant',
-          content: `⚠️ ${error.message}`,
+          content: `Error: ${error.message}`,
           timestamp: Date.now(),
         };
 
@@ -339,7 +443,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   cancelStreaming: () => {
-    const claude = getClaudeService(get().config.apiKey, get().config.model);
+    const state = get();
+    const claude = getClaudeService(
+      state.config.authMethod, state.config.apiKey, state.config.sessionCookie,
+      state.config.organizationId, state.config.model
+    );
     claude.cancelRequest();
     set({ isStreaming: false, streamingText: '' });
   },
@@ -436,6 +544,37 @@ export const useStore = create<AppState>((set, get) => ({
     const engine = get().evolutionEngine;
     if (!engine) return false;
     return engine.rollback(logEntry);
+  },
+
+  // Memory
+  addMemory: async (content, tags, source, importance = 0.5) => {
+    const memoryService = getMemoryService();
+    await memoryService.addMemory(content, tags, source, importance);
+    const count = await memoryService.getMemoryCount();
+    set({ memoryCount: count });
+  },
+
+  searchMemory: async (query) => {
+    const memoryService = getMemoryService();
+    return memoryService.search(query);
+  },
+
+  getAllMemories: async () => {
+    const memoryService = getMemoryService();
+    return memoryService.getAllMemories();
+  },
+
+  deleteMemory: async (id) => {
+    const memoryService = getMemoryService();
+    await memoryService.deleteMemory(id);
+    const count = await memoryService.getMemoryCount();
+    set({ memoryCount: count });
+  },
+
+  clearMemories: async () => {
+    const memoryService = getMemoryService();
+    await memoryService.clearAll();
+    set({ memoryCount: 0 });
   },
 
   // UI

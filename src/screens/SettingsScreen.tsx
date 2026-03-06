@@ -14,12 +14,15 @@ import { useStore } from '../store';
 import { themes, ThemeName } from '../config/theme';
 import { MODELS, DEFAULT_SYSTEM_PROMPT } from '../config/defaults';
 import { clearAllData } from '../services/storage';
+import { AuthMethod } from '../types';
 
 export function SettingsScreen() {
   const config = useStore(s => s.config);
   const updateConfig = useStore(s => s.updateConfig);
+  const memoryCount = useStore(s => s.memoryCount);
+  const clearMemories = useStore(s => s.clearMemories);
   const colors = themes[config.theme].colors;
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState(false);
   const [promptDraft, setPromptDraft] = useState(config.systemPrompt);
 
@@ -66,26 +69,85 @@ export function SettingsScreen() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
-        {/* API Configuration */}
-        <Section title="API CONFIGURATION">
-          <SettingRow icon="key-outline" label="API Key" description="Your Anthropic Claude API key">
-            <View style={styles.apiKeyRow}>
-              <TextInput
-                style={[styles.apiKeyInput, { color: colors.text, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
-                value={config.apiKey}
-                onChangeText={v => updateConfig({ apiKey: v })}
-                placeholder="sk-ant-..."
-                placeholderTextColor={colors.textMuted}
-                secureTextEntry={!showApiKey}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <Pressable onPress={() => setShowApiKey(!showApiKey)}>
-                <Ionicons name={showApiKey ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
-              </Pressable>
+        {/* Authentication */}
+        <Section title="AUTHENTICATION">
+          <SettingRow icon="log-in-outline" label="Auth Method" description="How to connect to Claude">
+            <View style={styles.authMethodRow}>
+              {(['session_cookie', 'api_key'] as AuthMethod[]).map(method => (
+                <Pressable
+                  key={method}
+                  style={[
+                    styles.authMethodBtn,
+                    {
+                      backgroundColor: config.authMethod === method ? colors.primary + '20' : colors.surfaceHighlight,
+                      borderColor: config.authMethod === method ? colors.primary : 'transparent',
+                    },
+                  ]}
+                  onPress={() => updateConfig({ authMethod: method })}
+                >
+                  <Text style={[styles.authMethodText, { color: config.authMethod === method ? colors.primary : colors.text }]}>
+                    {method === 'session_cookie' ? 'Login Cookie' : 'API Key'}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
           </SettingRow>
 
+          {config.authMethod === 'session_cookie' ? (
+            <>
+              <SettingRow icon="finger-print-outline" label="Session Cookie" description="Paste your claude.ai sessionKey cookie">
+                <View style={styles.apiKeyRow}>
+                  <TextInput
+                    style={[styles.apiKeyInput, { color: colors.text, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+                    value={config.sessionCookie}
+                    onChangeText={v => updateConfig({ sessionCookie: v })}
+                    placeholder="sk-ant-sid01-..."
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!showSecret}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <Pressable onPress={() => setShowSecret(!showSecret)}>
+                    <Ionicons name={showSecret ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+                  </Pressable>
+                </View>
+              </SettingRow>
+
+              <SettingRow icon="business-outline" label="Organization ID" description="From claude.ai URL" last>
+                <TextInput
+                  style={[styles.apiKeyInput, { color: colors.text, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+                  value={config.organizationId}
+                  onChangeText={v => updateConfig({ organizationId: v })}
+                  placeholder="org-uuid-here"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </SettingRow>
+            </>
+          ) : (
+            <SettingRow icon="key-outline" label="API Key" description="Your Anthropic Claude API key" last>
+              <View style={styles.apiKeyRow}>
+                <TextInput
+                  style={[styles.apiKeyInput, { color: colors.text, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+                  value={config.apiKey}
+                  onChangeText={v => updateConfig({ apiKey: v })}
+                  placeholder="sk-ant-..."
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry={!showSecret}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <Pressable onPress={() => setShowSecret(!showSecret)}>
+                  <Ionicons name={showSecret ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+                </Pressable>
+              </View>
+            </SettingRow>
+          )}
+        </Section>
+
+        {/* Model Selection */}
+        <Section title="MODEL">
           <SettingRow icon="hardware-chip-outline" label="Model" description="Claude model to use" last>
             <View style={styles.modelList}>
               {MODELS.map(model => (
@@ -108,6 +170,130 @@ export function SettingsScreen() {
               ))}
             </View>
           </SettingRow>
+        </Section>
+
+        {/* Persistent Memory */}
+        <Section title="PERSISTENT MEMORY">
+          <SettingRow icon="library-outline" label="Persistent Memory" description={`${memoryCount} memories stored`}>
+            <Switch
+              value={config.persistentMemoryEnabled}
+              onValueChange={v => updateConfig({ persistentMemoryEnabled: v })}
+              trackColor={{ false: colors.surfaceHighlight, true: colors.primary + '60' }}
+              thumbColor={config.persistentMemoryEnabled ? colors.primary : colors.textMuted}
+            />
+          </SettingRow>
+
+          <SettingRow icon="save-outline" label="Auto-Memorize" description="Automatically remember important info">
+            <Switch
+              value={config.autoMemorize}
+              onValueChange={v => updateConfig({ autoMemorize: v })}
+              trackColor={{ false: colors.surfaceHighlight, true: colors.primary + '60' }}
+              thumbColor={config.autoMemorize ? colors.primary : colors.textMuted}
+            />
+          </SettingRow>
+
+          <SettingRow icon="trash-outline" label="Clear Memories" description="Delete all stored memories" last>
+            <Pressable
+              style={[styles.smallButton, { borderColor: colors.warning }]}
+              onPress={() => {
+                Alert.alert('Clear Memories', 'Delete all stored memories? This cannot be undone.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Clear', style: 'destructive', onPress: clearMemories },
+                ]);
+              }}
+            >
+              <Text style={[styles.smallButtonText, { color: colors.warning }]}>Clear</Text>
+            </Pressable>
+          </SettingRow>
+        </Section>
+
+        {/* Channels */}
+        <Section title="CHANNELS">
+          <SettingRow icon="paper-plane-outline" label="Telegram Bot" description="Receive messages via Telegram">
+            <Switch
+              value={config.telegramConfig.enabled}
+              onValueChange={v => updateConfig({ telegramConfig: { ...config.telegramConfig, enabled: v } })}
+              trackColor={{ false: colors.surfaceHighlight, true: colors.primary + '60' }}
+              thumbColor={config.telegramConfig.enabled ? colors.primary : colors.textMuted}
+            />
+          </SettingRow>
+
+          {config.telegramConfig.enabled && (
+            <SettingRow icon="key-outline" label="Telegram Bot Token" description="From @BotFather">
+              <TextInput
+                style={[styles.apiKeyInput, { color: colors.text, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+                value={config.telegramConfig.botToken}
+                onChangeText={v => updateConfig({ telegramConfig: { ...config.telegramConfig, botToken: v } })}
+                placeholder="123456:ABC-DEF..."
+                placeholderTextColor={colors.textMuted}
+                secureTextEntry={!showSecret}
+                autoCapitalize="none"
+              />
+            </SettingRow>
+          )}
+
+          <SettingRow icon="logo-discord" label="Discord Bot" description="Receive messages via Discord">
+            <Switch
+              value={config.discordConfig.enabled}
+              onValueChange={v => updateConfig({ discordConfig: { ...config.discordConfig, enabled: v } })}
+              trackColor={{ false: colors.surfaceHighlight, true: colors.primary + '60' }}
+              thumbColor={config.discordConfig.enabled ? colors.primary : colors.textMuted}
+            />
+          </SettingRow>
+
+          {config.discordConfig.enabled && (
+            <SettingRow icon="key-outline" label="Discord Bot Token" description="From Discord Developer Portal" last>
+              <TextInput
+                style={[styles.apiKeyInput, { color: colors.text, backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+                value={config.discordConfig.botToken}
+                onChangeText={v => updateConfig({ discordConfig: { ...config.discordConfig, botToken: v } })}
+                placeholder="Bot token..."
+                placeholderTextColor={colors.textMuted}
+                secureTextEntry={!showSecret}
+                autoCapitalize="none"
+              />
+            </SettingRow>
+          )}
+
+          {!config.telegramConfig.enabled && !config.discordConfig.enabled && (
+            <View style={styles.settingRow}>
+              <Text style={[styles.settingDesc, { color: colors.textMuted, padding: 8 }]}>
+                Enable Telegram or Discord to chat with OpenClaw from other platforms
+              </Text>
+            </View>
+          )}
+        </Section>
+
+        {/* Browser & S Pen */}
+        <Section title="TOOLS">
+          <SettingRow icon="globe-outline" label="Browser Automation" description="Web browsing and data extraction">
+            <Switch
+              value={config.browserAutomationEnabled}
+              onValueChange={v => updateConfig({ browserAutomationEnabled: v })}
+              trackColor={{ false: colors.surfaceHighlight, true: colors.primary + '60' }}
+              thumbColor={config.browserAutomationEnabled ? colors.primary : colors.textMuted}
+            />
+          </SettingRow>
+
+          <SettingRow icon="pencil-outline" label="S Pen Support" description="Pressure-sensitive stylus input">
+            <Switch
+              value={config.sPenEnabled}
+              onValueChange={v => updateConfig({ sPenEnabled: v })}
+              trackColor={{ false: colors.surfaceHighlight, true: colors.primary + '60' }}
+              thumbColor={config.sPenEnabled ? colors.primary : colors.textMuted}
+            />
+          </SettingRow>
+
+          {config.sPenEnabled && (
+            <SettingRow icon="resize-outline" label="Pressure Sensitivity" description="Variable stroke width" last>
+              <Switch
+                value={config.sPenPressureSensitivity}
+                onValueChange={v => updateConfig({ sPenPressureSensitivity: v })}
+                trackColor={{ false: colors.surfaceHighlight, true: colors.primary + '60' }}
+                thumbColor={config.sPenPressureSensitivity ? colors.primary : colors.textMuted}
+              />
+            </SettingRow>
+          )}
         </Section>
 
         {/* Assistant Behavior */}
@@ -288,7 +474,7 @@ export function SettingsScreen() {
             onPress={() => {
               Alert.alert(
                 'Clear All Data',
-                'This will delete all conversations, skills, tasks, and settings. This cannot be undone.',
+                'This will delete all conversations, skills, tasks, memories, and settings. This cannot be undone.',
                 [
                   { text: 'Cancel', style: 'cancel' },
                   {
@@ -296,7 +482,6 @@ export function SettingsScreen() {
                     style: 'destructive',
                     onPress: async () => {
                       await clearAllData();
-                      // Reinitialize
                       useStore.getState().initialize();
                     },
                   },
@@ -311,10 +496,13 @@ export function SettingsScreen() {
 
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.textMuted }]}>
-            OpenClaw Assistant v1.0.0
+            OpenClaw Assistant v2.0.0
           </Text>
           <Text style={[styles.footerText, { color: colors.textMuted }]}>
             Powered by Claude · Built for Samsung Tab S10 FE
+          </Text>
+          <Text style={[styles.footerText, { color: colors.textMuted }]}>
+            Memory · Channels · Browser · S Pen
           </Text>
         </View>
       </ScrollView>
@@ -337,6 +525,9 @@ const styles = StyleSheet.create({
   settingLabel: { fontSize: 15, fontWeight: '500' },
   settingDesc: { fontSize: 12, marginTop: 2 },
   settingRight: { marginLeft: 12 },
+  authMethodRow: { flexDirection: 'row', gap: 6 },
+  authMethodBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5 },
+  authMethodText: { fontSize: 13, fontWeight: '600' },
   apiKeyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   apiKeyInput: { width: 200, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 },
   modelList: { gap: 6 },
@@ -347,6 +538,8 @@ const styles = StyleSheet.create({
   tempButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   themeRow: { flexDirection: 'row', gap: 8 },
   themeButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
+  smallButton: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  smallButtonText: { fontSize: 13, fontWeight: '600' },
   promptSection: { padding: 16 },
   promptPreview: { fontSize: 13, lineHeight: 20, fontFamily: 'monospace' },
   editPromptBtn: {
