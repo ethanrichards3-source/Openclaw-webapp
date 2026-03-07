@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0a0a0f"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -43,7 +45,8 @@
         {
           "microphonePermission": "Allow OpenClaw to access your microphone for voice commands."
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }
